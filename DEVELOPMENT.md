@@ -189,10 +189,15 @@ hatch run test
 ```
 
 
-
 ### Integration Tests
 
 We run integration tests by running it in Cinema 4D's python i.e. c4dpy for submitter and using Commandline.exe for adaptor tests.
+```
+# deadline-cloud lib with pyside
+export CINEMA4D_DEADLINE_CLOUD_PYTHONPATH="/path/to/deadline-cloud/site-packages"
+# configure cinema4d to find extension entry point
+export g_additionalModulePath="/path/to/deadline-cloud-for-cinema4d/deadline_cloud_extension"
+```
 
 #### Test Flow
 1. Scene Generation:
@@ -203,9 +208,14 @@ We run integration tests by running it in Cinema 4D's python i.e. c4dpy for subm
    - Generated scenes are processed through the submitter code
    - Job bundles are exported to a temporary location within the /integ folder.
 
+<<<<<<< HEAD
 3. Validation of job bundle:
    - Exported bundles are compared against expected bundles
    - Tests verify structure and content of the exports.
+=======
+Cinema4D does not support PYTHONPATH. We set CINEMA4D_DEADLINE_CLOUD_PYTHONPATH which the
+adaptor uses to set sys.path explictly and load deadline modules.
+>>>>>>> a66e7b0... Change ambiguous DEADLINE_CLOUD_PYTHONPATH env var
 
 4. Scene rendering:
    - The job bundles are run using OpenJD `run` command with Cinema 4D Commandline.
@@ -233,10 +243,11 @@ We run integration tests by running it in Cinema 4D's python i.e. c4dpy for subm
          test_cinema4d.py       # Runs all the tests scenes in a parametrized fashion.
 </pre>
 ```
-export DEADLINE_CLOUD_PYTHONPATH="/tmp/lib/python3.11/site-packages"
+export CINEMA4D_DEADLINE_CLOUD_PYTHONPATH="/tmp/lib/python3.11/site-packages"
 export CINEMA4D_ADAPTOR_CINEMA4D_EXE="/opt/maxon/cinema4dr2024.200/bin/c4d"
 ```
 
+<<<<<<< HEAD
 You would have to setup Cinema 4D and Redshift licensing before you run the tests.
 For Cinema 4D licensing, set environment variable by using `$env:g_licenseServerURL = <your-license-server-host>:<port>` on Windows Powershell.
 For redshift licensing, set the environment variable by using `$env:redshift_LICENSE = <port>@<your-license-server-host>` on Windows Powershell.
@@ -248,3 +259,14 @@ For redshift licensing, set the environment variable by using `$env:redshift_LIC
    2.1 Run `pip install pywin32==308 -t <your Python site-packages location>`.
    During my testing, pywin32's version 308 was required because of other dependencies requiring this version.
 3. Run `hatch run integ:test`
+=======
+### Windows
+
+To run the adaptor on Windows, you'll have to configure the environment variable `DEADLINE_CLOUD_PYTHONPATH` (like the submitter above) and install pywin32 into Cinema4D's python. Example:
+
+```
+set DEADLINE_CLOUD_PYTHONPATH="C:\path\to\deadline-cloud\site-packages"
+"C:\Program Files\Maxon Cinema 4D 2024\resource\modules\python\libs\win64\python.exe" -m ensurepip
+"C:\Program Files\Maxon Cinema 4D 2024\resource\modules\python\libs\win64\python.exe" -m pip install pywin32
+```
+>>>>>>> a66e7b0... Change ambiguous DEADLINE_CLOUD_PYTHONPATH env var

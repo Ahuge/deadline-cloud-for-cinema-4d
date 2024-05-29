@@ -31,6 +31,11 @@ root = os.path.dirname(__file__)
 sys.path.insert(0, os.path.join(root, 'modules'))
 
 if 'deadline.cinema4d_submitter' not in sys.modules.keys():
+    python_path = os.getenv('CINEMA4D_DEADLINE_CLOUD_PYTHONPATH')
+    python_paths = python_path.split(os.pathsep)
+    for n in python_paths:
+        if n not in sys.path:
+            sys.path.append(n)
     import deadline.cinema4d_submitter
 else:
     import importlib

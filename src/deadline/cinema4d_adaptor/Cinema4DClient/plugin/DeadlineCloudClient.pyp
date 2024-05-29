@@ -9,6 +9,17 @@ for n in sys.path:
     print(n)
 
 import c4d
+# cinema4d doesn't use PYTHONPATH so explicitly load modules
+if 'openjd' not in sys.modules.keys():
+    python_path = os.getenv('CINEMA4D_DEADLINE_CLOUD_PYTHONPATH')
+    python_paths = python_path.split(os.pathsep)
+    for p in python_paths:
+        if sys.platform == 'win32':
+            try:
+                os.add_dll_directory(p)
+            except Exception:
+                print('add_dll_directory failed: %s' % p)
+        sys.path.append(p)
 
 # The Cinema4D Adaptor adds the `deadline` namespace directory to PYTHONPATH,
 # so that importing just the cinema4d_adaptor should work.
