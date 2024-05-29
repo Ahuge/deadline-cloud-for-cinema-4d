@@ -276,7 +276,7 @@ class Cinema4DAdaptor(Adaptor[AdaptorConfiguration]):
         # does this for us.
         # On Linux this should be a path similar to this: /opt/maxon/cinema4dr2024.200/bin/c4d
         # On Windows it should be a path similar to this: "C:\Program Files\Maxon Cinema 4D R26\Commandline.exe"
-        c4d_exe_env = os.getenv("CINEMA4D_ADAPTOR_CINEMA4D_EXE", "")
+        c4d_exe_env = os.getenv("COMMANDLINE_EXECUTABLE", "")
         if not c4d_exe_env:
             c4d_exe = "Commandline"
         else:
