@@ -38,7 +38,7 @@ hatch run all:test
 
 ## Get started
 
-Cinema4D does not support PYTHONPATH. We set DEADLINE_CLOUD_PYTHONPATH which the
+Cinema4D does not support PYTHONPATH. We set CINEMA4D_DEADLINE_CLOUD_PYTHONPATH which the
 submitter uses to set sys.path explictly and load deadline modules.
 
 - install deadline-cloud with pyside
@@ -46,7 +46,7 @@ submitter uses to set sys.path explictly and load deadline modules.
 
 ```
 # deadline-cloud lib with pyside
-export DEADLINE_CLOUD_PYTHONPATH="/path/to/deadline-cloud/site-packages"
+export CINEMA4D_DEADLINE_CLOUD_PYTHONPATH="/path/to/deadline-cloud/site-packages"
 # configure cinema4d to find extension entry point
 export g_additionalModulePath="/path/to/deadline-cloud-for-cinema4d/deadline_cloud_extension"
 ```
@@ -56,7 +56,7 @@ export g_additionalModulePath="/path/to/deadline-cloud-for-cinema4d/deadline_clo
 
 ## Worker environment
 
-Cinema4D does not support PYTHONPATH. We set DEADLINE_CLOUD_PYTHONPATH which the
+Cinema4D does not support PYTHONPATH. We set CINEMA4D_DEADLINE_CLOUD_PYTHONPATH which the
 adaptor uses to set sys.path explictly and load deadline modules.
 
 Linux also requires the setup_c4d_env sourced first, we can override the exe
@@ -66,6 +66,6 @@ client.
 Example linux env below:
 
 ```
-export DEADLINE_CLOUD_PYTHONPATH="/tmp/lib/python3.11/site-packages"
+export CINEMA4D_DEADLINE_CLOUD_PYTHONPATH="/tmp/lib/python3.11/site-packages"
 export CINEMA4D_ADAPTOR_CINEMA4D_EXE="/opt/maxon/cinema4dr2024.200/bin/c4d"
 ```
