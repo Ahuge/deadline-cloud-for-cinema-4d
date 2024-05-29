@@ -29,7 +29,7 @@ To develop the Python code in this repository you will need:
 5. An AWS Deadline Cloud Farm to run jobs on. We recommend following the quickstart in the Deadline Cloud console to create a
    Queue with the default Queue Environment, and a Service Managed Fleet.
 
-You can develop on any Windows workstation. 
+You can develop on any Windows workstation.
 
 ## Software Architecture
 
@@ -50,8 +50,8 @@ from any directory of this repository:
 * `hatch shell` - Enter a shell environment that will have Python set up to import your development version of this package.
 * `hatch env prune` - Delete all of your isolated workspace [environments](https://hatch.pypa.io/1.12/environment/)
    for this package.
-* `hatch run installer:build-installer --local-dev --platform <PLATFORM> [--install-builder-path <LOCATION> --output-dir <DIR>]` - To build a local submitter installer. 
-* `hatch run test-installer` - To run tests against your locally built installer. 
+* `hatch run installer:build-installer --local-dev --platform <PLATFORM> [--install-builder-path <LOCATION> --output-dir <DIR>]` - To build a local submitter installer.
+* `hatch run test-installer` - To run tests against your locally built installer.
 
 Note: Hatch uses [environments](https://hatch.pypa.io/1.12/environment/) to isolate the Python development workspace
 for this package from your system or virtual environment Python. If your build/test run is not making sense, then
@@ -108,7 +108,7 @@ To run the adaptor you will first need to create two files:
 
 1. An `init-data.yaml` (or `init-data.json`) file that contains the information passed to the adaptor
    during its initialization phase. The schema for this file can be found at
-   `src/deadline/cinema4d_adaptor/Cinema4DAdaptor/schemas/init_data.schema.json`. 
+   `src/deadline/cinema4d_adaptor/Cinema4DAdaptor/schemas/init_data.schema.json`.
 2. A `run-data.yaml` (or `run-data.json`) file that contains the information passed to the adaptor
    to do a single Task run. The schema for this file can be found at
    `src/deadline/cinema4d_adaptor/Cinema4DAdaptor/schemas/run_data.schema.json`.
@@ -167,14 +167,14 @@ cinema4d-openjd daemon stop \
 If you have made modifications to the adaptor and wish to test your modifications on a live Deadline Cloud Farm
 with real jobs, then we recommend using a [Service Managed Fleet](https://docs.aws.amazon.com/deadline-cloud/latest/userguide/smf-manage.html)
 for your testing. We recommend performing this style of test if you have made any modifications that might interact with Deadline Cloud's
-job attachments feature, or that could interact with path mapping in any way. 
+job attachments feature, or that could interact with path mapping in any way.
 
 You'll need to perform the following steps to substitute your build of the adaptor for the one in the service.
 
-1. Follow the [instructions](https://github.com/aws-deadline/deadline-cloud-samples/tree/mainline/conda_recipes#create-a-patch-for-a-recipe) to make a patch for your "cinema4d-openjd" recipe. 
-2. Build a new "cinema4d-openjd" conda package using this patch. For instructions on building conda recipes on Deadline Cloud, follow this [article](https://aws.amazon.com/blogs/media/create-a-conda-package-and-channel-for-aws-deadline-cloud/). 
-This should have automatically added the latest patch onto the S3 bucket for the SMF workers to pull from. 
-3. Submit jobs and check if the renders work as expected. 
+1. Follow the [instructions](https://github.com/aws-deadline/deadline-cloud-samples/tree/mainline/conda_recipes#create-a-patch-for-a-recipe) to make a patch for your "cinema4d-openjd" recipe.
+2. Build a new "cinema4d-openjd" conda package using this patch. For instructions on building conda recipes on Deadline Cloud, follow this [article](https://aws.amazon.com/blogs/media/create-a-conda-package-and-channel-for-aws-deadline-cloud/).
+This should have automatically added the latest patch onto the S3 bucket for the SMF workers to pull from.
+3. Submit jobs and check if the renders work as expected.
 
 ##### Unit tests
 
@@ -192,7 +192,7 @@ hatch run test
 
 ### Integration Tests
 
-We run integration tests by running it in Cinema 4D's python i.e. c4dpy for submitter and using Commandline.exe for adaptor tests. 
+We run integration tests by running it in Cinema 4D's python i.e. c4dpy for submitter and using Commandline.exe for adaptor tests.
 
 #### Test Flow
 1. Scene Generation:
@@ -208,22 +208,22 @@ We run integration tests by running it in Cinema 4D's python i.e. c4dpy for subm
    - Tests verify structure and content of the exports.
 
 4. Scene rendering:
-   - The job bundles are run using OpenJD `run` command with Cinema 4D Commandline. 
+   - The job bundles are run using OpenJD `run` command with Cinema 4D Commandline.
 
 5. Validation of output files:
-   - The generated output files are compared with expected scene files. 
+   - The generated output files are compared with expected scene files.
 
 #### Test Structure
 
 <pre>
    /test
       /integ
-         /test_scenes/           
+         /test_scenes/
             /scene_1
                /expected_job_bundle/      # Reference job bundle for validation
                   asset_references.yaml
                   parameter_values.yaml
-                  template.yaml 
+                  template.yaml
                /expected_job_output/
                   renders/
                      output files
@@ -232,16 +232,19 @@ We run integration tests by running it in Cinema 4D's python i.e. c4dpy for subm
          conftest.py            # Test configuration and fixtures
          test_cinema4d.py       # Runs all the tests scenes in a parametrized fashion.
 </pre>
+```
+export DEADLINE_CLOUD_PYTHONPATH="/tmp/lib/python3.11/site-packages"
+export CINEMA4D_ADAPTOR_CINEMA4D_EXE="/opt/maxon/cinema4dr2024.200/bin/c4d"
+```
 
 You would have to setup Cinema 4D and Redshift licensing before you run the tests.
-For Cinema 4D licensing, set environment variable by using `$env:g_licenseServerURL = <your-license-server-host>:<port>` on Windows Powershell. 
-For redshift licensing, set the environment variable by using `$env:redshift_LICENSE = <port>@<your-license-server-host>` on Windows Powershell. 
+For Cinema 4D licensing, set environment variable by using `$env:g_licenseServerURL = <your-license-server-host>:<port>` on Windows Powershell.
+For redshift licensing, set the environment variable by using `$env:redshift_LICENSE = <port>@<your-license-server-host>` on Windows Powershell.
 
 1. Set the environment variable `C4D_PYTHON` to the installation folder of Cinema 4D.
    1. `set C4D_PYTHON=<Cinema 4D location>` on Windows Command or `$env:C4D_PYTHON = <Cinema 4D location>` on Windows Powershell.
       1. The default location for `Cinema 4D` on Windows is `C:\Program Files\Maxon Cinema 4D 2025\`. This location would be automatically used if the directory exists.
 2. For running the adaptor tests, we would need to install `pywin32` to the installation paths as its an adaptor dependency.
-   2.1 Run `pip install pywin32==308 -t <your Python site-packages location>`. 
+   2.1 Run `pip install pywin32==308 -t <your Python site-packages location>`.
    During my testing, pywin32's version 308 was required because of other dependencies requiring this version.
 3. Run `hatch run integ:test`
-
