@@ -243,8 +243,8 @@ adaptor uses to set sys.path explictly and load deadline modules.
          test_cinema4d.py       # Runs all the tests scenes in a parametrized fashion.
 </pre>
 ```
-export CINEMA4D_DEADLINE_CLOUD_PYTHONPATH="/tmp/lib/python3.11/site-packages"
-export CINEMA4D_ADAPTOR_CINEMA4D_EXE="/opt/maxon/cinema4dr2024.200/bin/c4d"
+export DEADLINE_CLOUD_PYTHONPATH="/tmp/lib/python3.11/site-packages"
+export COMMANDLINE_EXECUTABLE="/opt/maxon/cinema4dr2024.200/bin/Commandline"
 ```
 
 <<<<<<< HEAD
