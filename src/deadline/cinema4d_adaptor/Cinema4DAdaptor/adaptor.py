@@ -301,20 +301,13 @@ class Cinema4DAdaptor(Adaptor[AdaptorConfiguration]):
         else:
             new_module_path = plugin_dir + os.pathsep + module_path
         os.environ[module_path_key] = new_module_path
+        arguments = [c4d_exe, "-nogui", "-debug"]
+        if "linux" in platform.system().lower():
+            _logger.info("Setting Linux Cinema4D environment")
+            self._set_cinema4d_environment(c4d_exe)
+            _logger.info("Inserting Linux adaptor wrapper script")
+            arguments.insert(0, os.path.join(os.path.dirname(__file__), "adaptor.sh"))
 
-        # if "linux" in platform.system().lower():
-        #     self._cinema4d_client = LoggingSubprocess(
-        #         args=[c4d_exe, "-nogui", "-DeadlineCloudClient"],
-        #         stdout_handler=regexhandler,
-        #         stderr_handler=regexhandler,
-        #         env=self._get_cinema4d_environment(c4d_exe)
-        #     )
-        # else:
-        #     self._cinema4d_client = LoggingSubprocess(
-        #         args=[c4d_exe, "-nogui", "-DeadlineCloudClient"],
-        #         stdout_handler=regexhandler,
-        #         stderr_handler=regexhandler,
-        #     )
         arguments = [c4d_exe, "-nogui", "-DeadlineCloudClient"]
         if "linux" in platform.system().lower():
             _logger.info("Setting Linux Cinema4D environment")
