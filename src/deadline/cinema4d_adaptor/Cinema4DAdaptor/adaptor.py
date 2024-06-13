@@ -9,7 +9,10 @@ import re
 import sys
 import threading
 import time
+import glob
 from functools import wraps
+import functools
+import platform
 from typing import Callable
 
 from openjd.adaptor_runtime.adaptors import Adaptor, AdaptorDataValidators, SemanticVersion
@@ -415,6 +418,43 @@ class Cinema4DAdaptor(Adaptor[AdaptorConfiguration]):
             stdout_handler=regexhandler,
             stderr_handler=regexhandler,
         )
+
+    @staticmethod
+    def _glob_add_path(base, pattern):
+        matches = list(glob.iglob(os.path.join(base, pattern)))
+        if matches:
+            return os.path.join(base, matches[0])
+        return base
+
+    def _get_cinema4d_environment(self, c4d_exe):
+        c4d_root_path = os.path.dirname(os.path.dirname(c4d_exe))
+        environ = dict(os.environ)
+
+        ld_paths = ["bin", "resource", "modules", "python", "libs", "*linux64*", "lib64"]
+        library_path = functools.reduce(self._glob_add_path, ld_paths, os.path.dirname(c4d_root_path))
+        ld_library_paths = [os.path.join(c4d_root_path, "lib64"), library_path]
+        if environ.get("LD_LIBRARY_PATH", None):
+            ld_library_paths.insert(0, environ["LD_LIBRARY_PATH"])
+        os.environ["LD_LIBRARY_PATH"] = os.pathsep.join(ld_library_paths)
+        environ["LD_LIBRARY_PATH"] = os.pathsep.join(ld_library_paths)
+
+        paths = [os.path.join(c4d_root_path, "bin"),]
+        if environ.get("PATH", None):
+            paths.insert(0, environ["PATH"])
+        os.environ["PATH"] = os.pathsep.join(paths)
+        environ["PATH"] = os.pathsep.join(paths)
+
+        py_paths = ["bin", "resource", "modules", "python", "libs", "*linux64*", "lib", "python*", "lib-dynload"]
+        python_path = functools.reduce(self._glob_add_path, py_paths, os.path.dirname(c4d_root_path))
+        python_paths = [python_path,]
+        if environ.get("PYTHONPATH", None):
+            python_paths.insert(0, environ["PYTHONPATH"])
+        os.environ["PYTHONPATH"] = os.pathsep.join(python_paths)
+        environ["PYTHONPATH"] = os.pathsep.join(python_paths)
+
+        os.environ["LC_NUMERIC"] = "en_US.UTF-8"
+        environ["LC_NUMERIC"] = "en_US.UTF-8"
+        return environ
 
     def _get_cinema4d_pathmap(self) -> str:
         """Builds a dict of source to destination strings from the path mapping rules
