@@ -317,10 +317,10 @@ class Cinema4DAdaptor(Adaptor[AdaptorConfiguration]):
         #     )
         arguments = [c4d_exe, "-nogui", "-DeadlineCloudClient"]
         if "linux" in platform.system().lower():
-            env = self._get_cinema4d_environment(c4d_exe)
             _logger.info("Setting Linux Cinema4D environment")
-            arguments.insert(0, os.path.join(os.path.dirname(__file__), "adaptor.sh"))
+            env = self._get_cinema4d_environment(c4d_exe)
             _logger.info("Inserting Linux adaptor wrapper script")
+            arguments.insert(0, os.path.join(os.path.dirname(__file__), "adaptor.sh"))
         self._cinema4d_client = LoggingSubprocess(
             args=arguments,
             stdout_handler=regexhandler,
