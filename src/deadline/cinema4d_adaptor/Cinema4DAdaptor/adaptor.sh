@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 C4DEXE="$1"
 echo "C4D Executable: ${C4DEXE}"
 echo "$@"
