@@ -38,7 +38,6 @@ then
   fi
 else
   echo "setup_c4d_env not found in ${C4DBASE}";
-
 fi
 
 echo "Executing C4D Executable with argument list after sourcing environment"
