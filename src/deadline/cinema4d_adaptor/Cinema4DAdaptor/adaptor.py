@@ -315,6 +315,9 @@ class Cinema4DAdaptor(Adaptor[AdaptorConfiguration]):
         #         stdout_handler=regexhandler,
         #         stderr_handler=regexhandler,
         #     )
+        if "linux" in platform.system().lower():
+            env = self._get_cinema4d_environment(c4d_exe)
+            _logger.info("Setting Linux Cinema4D environment")
         self._cinema4d_client = LoggingSubprocess(
             args=[c4d_exe, "-nogui", "-DeadlineCloudClient"],
             stdout_handler=regexhandler,
@@ -337,12 +340,15 @@ class Cinema4DAdaptor(Adaptor[AdaptorConfiguration]):
         ld_library_paths = [os.path.join(c4d_root_path, "lib64"), library_path]
         if environ.get("LD_LIBRARY_PATH", None):
             ld_library_paths.insert(0, environ["LD_LIBRARY_PATH"])
+
+        _logger.info("Setting LD_LIBRARY_PATH to %s" % str(ld_library_paths))
         os.environ["LD_LIBRARY_PATH"] = os.pathsep.join(ld_library_paths)
         environ["LD_LIBRARY_PATH"] = os.pathsep.join(ld_library_paths)
 
         paths = [os.path.join(c4d_root_path, "bin"),]
         if environ.get("PATH", None):
             paths.insert(0, environ["PATH"])
+        _logger.info("Setting PATH to %s" % str(paths))
         os.environ["PATH"] = os.pathsep.join(paths)
         environ["PATH"] = os.pathsep.join(paths)
 
@@ -351,9 +357,11 @@ class Cinema4DAdaptor(Adaptor[AdaptorConfiguration]):
         python_paths = [python_path,]
         if environ.get("PYTHONPATH", None):
             python_paths.insert(0, environ["PYTHONPATH"])
+        _logger.info("Setting PYTHONPATH to %s" % str(python_paths))
         os.environ["PYTHONPATH"] = os.pathsep.join(python_paths)
         environ["PYTHONPATH"] = os.pathsep.join(python_paths)
 
+        _logger.info("Setting LC_NUMERIC to en_US.UTF-8")
         os.environ["LC_NUMERIC"] = "en_US.UTF-8"
         environ["LC_NUMERIC"] = "en_US.UTF-8"
         return environ
