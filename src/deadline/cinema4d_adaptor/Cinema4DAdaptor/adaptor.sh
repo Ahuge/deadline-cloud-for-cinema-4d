@@ -30,4 +30,4 @@ else
 fi
 
 echo "Executing C4D Executable with argument list after sourcing environment"
-$C4DEXE "$ARGS"
+$C4DEXE ${ARGS[*]}
