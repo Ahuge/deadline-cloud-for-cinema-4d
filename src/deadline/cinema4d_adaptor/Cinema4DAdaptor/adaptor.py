@@ -340,9 +340,11 @@ class Cinema4DAdaptor(Adaptor[AdaptorConfiguration]):
 
         ld_paths = ["bin", "resource", "modules", "python", "libs", "*linux64*", "lib64"]
         library_path = functools.reduce(self._glob_add_path, ld_paths, os.path.dirname(c4d_root_path))
-        ld_library_paths = [os.path.join(c4d_root_path, "lib64"), library_path]
+        embree_paths = ["bin", "resource", "modules", "embree.module", "libs", "linux64"]
+        embree_path = functools.reduce(self._glob_add_path, embree_paths, os.path.dirname(c4d_root_path))
+        ld_library_paths = [os.path.join(c4d_root_path, "lib64"), library_path, embree_path]
         if environ.get("LD_LIBRARY_PATH", None):
-            ld_library_paths.insert(0, environ["LD_LIBRARY_PATH"])
+            ld_library_paths.append(environ["LD_LIBRARY_PATH"])
 
         _logger.info("Setting LD_LIBRARY_PATH to %s" % str(ld_library_paths))
         os.environ["LD_LIBRARY_PATH"] = os.pathsep.join(ld_library_paths)
@@ -357,7 +359,9 @@ class Cinema4DAdaptor(Adaptor[AdaptorConfiguration]):
 
         py_paths = ["bin", "resource", "modules", "python", "libs", "*linux64*", "lib", "python*", "lib-dynload"]
         python_path = functools.reduce(self._glob_add_path, py_paths, os.path.dirname(c4d_root_path))
-        python_paths = [python_path,]
+        py_paths2 = ["bin", "resource", "modules", "python", "libs", "*linux64*", "lib64", "python*", ]
+        python_path2 = functools.reduce(self._glob_add_path, py_paths2, os.path.dirname(c4d_root_path))
+        python_paths = [python_path, python_path2]
         if environ.get("PYTHONPATH", None):
             python_paths.insert(0, environ["PYTHONPATH"])
         _logger.info("Setting PYTHONPATH to %s" % str(python_paths))
