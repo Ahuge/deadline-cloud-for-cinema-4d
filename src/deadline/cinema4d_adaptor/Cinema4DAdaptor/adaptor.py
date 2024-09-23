@@ -307,6 +307,14 @@ class Cinema4DAdaptor(Adaptor[AdaptorConfiguration]):
             self._set_cinema4d_environment(c4d_exe)
             _logger.info("Inserting Linux adaptor wrapper script")
             arguments.insert(0, os.path.join(os.path.dirname(__file__), "adaptor.sh"))
+        # "-noopengl", "-DeadlineCloudClient"]
+        # From: https://developers.maxon.net/forum/topic/15140/running-commanline-application-with-python/6
+        if os.environ.get("g_licenseServerRLM", None):
+            # arguments.append("g_licenseModel=LICENSEMODEL::RLM")
+            arguments.append("g_licenseServerRLM={}".format(os.environ.get("g_licenseServerRLM")))
+        if os.environ.get("g_licenseServerUrl", None):
+            # arguments.append("g_licenseModel=LICENSEMODEL::LICENSESERVER")
+            arguments.append("g_licenseServerUrl={}".format(os.environ.get("g_licenseServerUrl")))
 
         arguments = [c4d_exe, "-nogui", "-DeadlineCloudClient"]
         if "linux" in platform.system().lower():
