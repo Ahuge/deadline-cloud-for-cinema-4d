@@ -31,7 +31,9 @@ except (ImportError, ModuleNotFoundError):
 def parse_argv(argv):
     for arg in argv:
         if arg.find("-DeadlineCloudClient") == 0:
+            print("Found -DeadlineCloudClient argument. About to call cinema4d_client.main()")
             main()
+            print("cinema4d_client.main() finished")
             return True
     return False
 
