@@ -12,7 +12,7 @@ for n in sys.path:
 
 # cinema4d doesn't use PYTHONPATH so explicitly load modules
 if 'openjd' not in sys.modules.keys():
-    python_path = os.getenv('DEADLINE_CLOUD_PYTHONPATH', '')
+    python_path = os.environ.get('DEADLINE_CLOUD_PYTHONPATH', '')
     python_paths = python_path.split(os.pathsep)
     for p in python_paths:
         if sys.platform == 'win32':
@@ -22,17 +22,13 @@ if 'openjd' not in sys.modules.keys():
                 print('add_dll_directory failed: %s' % p)
         sys.path.append(p)
 
-print("About to import cinema4d_client")
 from deadline.cinema4d_adaptor.Cinema4DClient.cinema4d_client import main
-print("cinema4d_client imported successfully")
 
 
 def parse_argv(argv):
     for arg in argv:
         if arg.find("-DeadlineCloudClient") == 0:
-            print("Found -DeadlineCloudClient argument. About to call cinema4d_client.main()")
             main()
-            print("cinema4d_client.main() finished")
             return True
     return False
 
