@@ -276,7 +276,7 @@ class Cinema4DAdaptor(Adaptor[AdaptorConfiguration]):
         # does this for us.
         # On Linux this should be a path similar to this: /opt/maxon/cinema4dr2024.200/bin/c4d
         # On Windows it should be a path similar to this: "C:\Program Files\Maxon Cinema 4D R26\Commandline.exe"
-        c4d_exe_env = os.getenv("CINEMA4D_ADAPTOR_CINEMA4D_EXE", "")
+        c4d_exe_env = os.getenv("COMMANDLINE_EXECUTABLE", "")
         if not c4d_exe_env:
             c4d_exe = "Commandline"
         else:
@@ -301,20 +301,21 @@ class Cinema4DAdaptor(Adaptor[AdaptorConfiguration]):
         else:
             new_module_path = plugin_dir + os.pathsep + module_path
         os.environ[module_path_key] = new_module_path
+        arguments = [c4d_exe, "-nogui", "-debug"]
+        if "linux" in platform.system().lower():
+            _logger.info("Setting Linux Cinema4D environment")
+            self._set_cinema4d_environment(c4d_exe)
+            _logger.info("Inserting Linux adaptor wrapper script")
+            arguments.insert(0, os.path.join(os.path.dirname(__file__), "adaptor.sh"))
+        # "-noopengl", "-DeadlineCloudClient"]
+        # From: https://developers.maxon.net/forum/topic/15140/running-commanline-application-with-python/6
+        if os.environ.get("g_licenseServerRLM", None):
+            # arguments.append("g_licenseModel=LICENSEMODEL::RLM")
+            arguments.append("g_licenseServerRLM={}".format(os.environ.get("g_licenseServerRLM")))
+        if os.environ.get("g_licenseServerUrl", None):
+            # arguments.append("g_licenseModel=LICENSEMODEL::LICENSESERVER")
+            arguments.append("g_licenseServerUrl={}".format(os.environ.get("g_licenseServerUrl")))
 
-        # if "linux" in platform.system().lower():
-        #     self._cinema4d_client = LoggingSubprocess(
-        #         args=[c4d_exe, "-nogui", "-DeadlineCloudClient"],
-        #         stdout_handler=regexhandler,
-        #         stderr_handler=regexhandler,
-        #         env=self._get_cinema4d_environment(c4d_exe)
-        #     )
-        # else:
-        #     self._cinema4d_client = LoggingSubprocess(
-        #         args=[c4d_exe, "-nogui", "-DeadlineCloudClient"],
-        #         stdout_handler=regexhandler,
-        #         stderr_handler=regexhandler,
-        #     )
         arguments = [c4d_exe, "-nogui", "-DeadlineCloudClient"]
         if "linux" in platform.system().lower():
             _logger.info("Setting Linux Cinema4D environment")
