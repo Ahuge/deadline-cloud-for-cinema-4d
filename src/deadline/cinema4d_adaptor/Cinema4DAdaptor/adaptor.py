@@ -309,6 +309,12 @@ class Cinema4DAdaptor(Adaptor[AdaptorConfiguration]):
             env = self._get_cinema4d_environment(c4d_exe)
             _logger.info("Inserting Linux adaptor wrapper script")
             arguments.insert(0, os.path.join(os.path.dirname(__file__), "adaptor.sh"))
+
+        if os.environ.get("g_licenseServerRLM", None):
+            arguments.append("g_licenseServerRLM={}".format(os.environ.get("g_licenseServerRLM")))
+        if os.environ.get("g_licenseServerUrl", None):
+            arguments.append("g_licenseServerUrl={}".format(os.environ.get("g_licenseServerUrl")))
+
         self._cinema4d_client = LoggingSubprocess(
             args=arguments,
             stdout_handler=regexhandler,
