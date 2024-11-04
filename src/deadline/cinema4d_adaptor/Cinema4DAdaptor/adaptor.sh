@@ -19,9 +19,11 @@ fi
 C4DBASE=$(dirname "${C4DEXE}")
 
 echo "Manually setting LD_LIBRARY_PATH, PATH, and PYTHONPATH to Cinema4D components"
-export LD_LIBRARY_PATH="${C4DBASE}/resource/modules/python/libs/*linux64*/lib64:${C4DBASE}/resource/modules/embree.module/libs/linux64:$LD_LIBRARY_PATH"
+LD_LIBRARY_PATH_=${LD_LIBRARY_PATH-""}
+export LD_LIBRARY_PATH="${C4DBASE}/resource/modules/python/libs/*linux64*/lib64:${C4DBASE}/resource/modules/embree.module/libs/linux64:$LD_LIBRARY_PATH_"
 export PATH="${C4DBASE}:$PATH"
-export PYTHONPATH="${C4DBASE}/resource/modules/python/libs/*linux64*/lib/python*/lib-dynload:${C4DBASE}/resource/modules/python/libs/*linux64*/lib64/python*:$PYTHONPATH"
+PYTHONPATH_=${PYTHONPATH-""}
+export PYTHONPATH="${C4DBASE}/resource/modules/python/libs/*linux64*/lib/python*/lib-dynload:${C4DBASE}/resource/modules/python/libs/*linux64*/lib64/python*:$PYTHONPATH_"
 
 if [ -f "${C4DBASE}/setup_c4d_env" ]
 then
