@@ -50,6 +50,13 @@ class Cinema4DHandler:
         self.take = "Main"
         self.map_path = map_path
 
+    def _remap_assets(self):
+        asset_list = []
+        c4d.documents.GetAllAssetsNew(self.doc, allowDialogs=False, lastPath="", assetList=asset_list)
+        for asset in asset_list:
+            asset_owner = asset.get("owner")
+            asset_owner[c4d.BITMAPSHADER_FILENAME] = self.map_path(asset.get("filename")
+
     def start_render(self, data: dict) -> None:
         self.doc = c4d.documents.GetActiveDocument()
         self.render_data = self.doc.GetActiveRenderData()
@@ -69,6 +76,8 @@ class Cinema4DHandler:
             self.render_data[c4d.RDATA_MULTIPASS_FILENAME] = self.map_path(
                 self.render_data[c4d.RDATA_MULTIPASS_FILENAME]
             )
+
+        self._remap_assets()
 
         bm = bitmaps.MultipassBitmap(
             int(self.render_data[c4d.RDATA_XRES]),
