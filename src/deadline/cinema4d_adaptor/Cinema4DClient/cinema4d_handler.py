@@ -57,7 +57,7 @@ class Cinema4DHandler:
             asset_owner = asset.get("owner")
             asset_param_id = asset.get("paramId")
             if asset_owner and asset_param_id:
-                asset_owner[asset.get("paramId")] = self.map_path(asset.get("filename"))
+                asset_owner[asset_param_id] = self.map_path(asset.get("filename"))
 
     def start_render(self, data: dict) -> None:
         self.doc = c4d.documents.GetActiveDocument()
