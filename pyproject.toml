@@ -30,13 +30,13 @@ classifiers = [
 ]
 
 dependencies = [
-    "deadline == 0.48.*",
-    "openjd-adaptor-runtime >= 0.7,< 0.9",
+    "deadline >= 0.49.7",
+    "openjd-adaptor-runtime >= 0.7,< 0.10",
 ]
 
 [project.urls]
 Homepage = "https://github.com/aws-deadline/deadline-cloud-for-cinema-4d"
-Source = "https://github.com/aws-deadline/deadline-cloud-for-cinimema-4d"
+Source = "https://github.com/aws-deadline/deadline-cloud-for-cinema-4d"
 
 [project.scripts]
 cinema4d-openjd = "deadline.cinema4d_adaptor.Cinema4DAdaptor:main"

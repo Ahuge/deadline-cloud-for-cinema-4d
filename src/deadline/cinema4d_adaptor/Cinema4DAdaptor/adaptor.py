@@ -4,17 +4,22 @@ from __future__ import annotations
 
 import logging
 import os
+import platform
 import re
+import sys
 import threading
 import time
+import glob
 from functools import wraps
+import functools
+import platform
 from typing import Callable
 
 from openjd.adaptor_runtime.adaptors import Adaptor, AdaptorDataValidators, SemanticVersion
 from openjd.adaptor_runtime.adaptors.configuration import AdaptorConfiguration
-from openjd.adaptor_runtime.process import LoggingSubprocess
 from openjd.adaptor_runtime.app_handlers import RegexCallback, RegexHandler
 from openjd.adaptor_runtime.application_ipc import ActionsQueue, AdaptorServer
+from openjd.adaptor_runtime.process import LoggingSubprocess
 from openjd.adaptor_runtime_client import Action
 
 _logger = logging.getLogger(__name__)
@@ -23,10 +28,8 @@ _logger = logging.getLogger(__name__)
 class Cinema4DNotRunningError(Exception):
     """Error that is raised when attempting to use Cinema4D while it is not running"""
 
-    pass
 
-
-_FIRST_CINEMA4D_ACTIONS = ["scene_file", "take"]
+_FIRST_CINEMA4D_ACTIONS = ["scene_file", "take", "output_path", "multi_pass_path"]
 _CINEMA4D_RUN_KEYS = {
     "frame",
 }
@@ -71,6 +74,32 @@ class Cinema4DAdaptor(Adaptor[AdaptorConfiguration]):
     # Will be optionally changed after the scene is set.
     _expected_outputs: int = 1  # Total number of renders to perform.
     _produced_outputs: int = 0  # Counter for tracking number of complete renders.
+
+    def __init__(self, *args, **kwargs):
+        if sys.platform == "linux" and "path_mapping_data" in kwargs:
+            # on Linux, Cinema4D interprets Windows absolute paths as relative paths
+            # e.g. `C:\Users\test-user\Documents\file.bmp` becomes
+            # `./C:/Users/test-user/Documents/file.bmp`
+            # To map these paths with job attachments, we duplicate any existing Windows path mapping
+            # and then add a `./` prefix to it so that it converts correctly on Linux
+            path_mapping_data = kwargs["path_mapping_data"] or {}
+            path_mapping_rules = path_mapping_data.get("path_mapping_rules", [])
+            for rule in path_mapping_rules.copy():
+                source_path_format = rule.get("source_path_format", "")
+                # if there is no destination_os, the rule applies
+                destination_os = rule.get("destination_os", "linux")
+                if source_path_format.lower().startswith(
+                    "win"
+                ) and destination_os.lower().startswith("linux"):
+                    prefixed_rule = {
+                        "source_path": f"./{rule['source_path']}",
+                        "source_path_format": source_path_format,
+                        "destination_path": rule["destination_path"],
+                    }
+                    if "destination_os" in rule:
+                        prefixed_rule["destination_os"] = rule["destination_os"]
+                    path_mapping_rules.append(prefixed_rule)
+        super().__init__(*args, **kwargs)
 
     @property
     def integration_data_interface_version(self) -> SemanticVersion:
@@ -156,6 +185,33 @@ class Cinema4DAdaptor(Adaptor[AdaptorConfiguration]):
         self._server = AdaptorServer(self._action_queue, self)
         self._server.serve_forever()
 
+    def _initialize_maxon_assets_db_connection(self) -> None:
+        """
+        When starting `Commandline.exe` the first time on Windows, Cinema 4D sometimes has the following error:
+        ```
+        sslConnection.DoHandShake failed while connecting to https://assets.maxon.net/assets/MaxonAssets.db/_index/modified.dat:
+            SSL_do_handshake returned error: SSL_ERROR_SSL (certificate verify failed Certificate Information: not available)
+        ```
+        This indicates that a secure connection was not able to be made to the Maxon assets DB, so Cinema 4D
+        did not connect to it at all. (i.e. it only connects if the connection is secure)
+
+        However, Cinema 4D appears to quit prematurely the first time because on subsequent retries, the secure
+        handshake will succeed.
+
+        To prevent this from occurring, we pre-emptively initialize the connection.
+
+        The Maxon assets DB is used to pull in assets from Maxon and if outdated, recently released assets may not be
+        available.
+        """
+        if sys.platform in ["win32", "cygwin"]:
+            _logger.info("Initializing the Maxon assets DB connection")
+            curl_subprocess = LoggingSubprocess(
+                args=["curl", "https://assets.maxon.net/assets/MaxonAssets.db/_index/modified.dat"]
+            )
+            # Note that if curl has an error, this will not re-raise the error. This is intended because updating the
+            # asset database does not affect rendering in most cases and there is NO security risk if it has an error.
+            curl_subprocess.wait()
+
     def _start_cinema4d_server_thread(self) -> None:
         """
         Starts the cinema4d adaptor server in a thread.
@@ -187,21 +243,41 @@ class Cinema4DAdaptor(Adaptor[AdaptorConfiguration]):
         if not self._regex_callbacks:
             callback_list = []
 
-            _cinema4d_license_error = "RuntimeError: Error encountered when initializing Cinema4D"
-
             completed_regexes = [re.compile(".*Finished Rendering.*")]
-            progress_regexes = [re.compile(".*Progress ([0-9]+)%.*")]
-            error_regexes = [re.compile(".*Error: .*|.*\\[Error\\].*", re.IGNORECASE)]
-
             callback_list.append(RegexCallback(completed_regexes, self._handle_complete))
-            callback_list.append(RegexCallback(progress_regexes, self._handle_progress))
-            if self.init_data.get("strict_error_checking", False):
-                callback_list.append(RegexCallback(error_regexes, self._handle_error))
 
+            progress_regexes = [re.compile(".*Progress ([0-9]+)%.*")]
+            callback_list.append(RegexCallback(progress_regexes, self._handle_progress))
+
+            error_regexes = [
+                re.compile(r".*Document not found.*", re.IGNORECASE),
+                re.compile(r".*Project not found.*", re.IGNORECASE),
+                re.compile(r".*Error rendering project.*", re.IGNORECASE),
+                re.compile(r".*Error loading project.*", re.IGNORECASE),
+                re.compile(r".*Error rendering document.*", re.IGNORECASE),
+                re.compile(r".*Error loading document.*", re.IGNORECASE),
+                re.compile(r".*Rendering failed.*", re.IGNORECASE),
+                re.compile(r".*Asset missing.*", re.IGNORECASE),
+                re.compile(r".*Asset Error.*", re.IGNORECASE),
+                re.compile(r".*Invalid License.*", re.IGNORECASE),
+                re.compile(r".*licensing error.*", re.IGNORECASE),
+                re.compile(r".*License Check error.*", re.IGNORECASE),
+                re.compile(r".*Files cannot be written.*", re.IGNORECASE),
+                re.compile(r".*Enter Registration Data.*", re.IGNORECASE),
+                re.compile(r".*Unable to write file.*", re.IGNORECASE),
+                re.compile(r".*\[rlm\] abort_on_license_fail enabled.*", re.IGNORECASE),
+                re.compile(r".*RenderDocument failed with return code.*", re.IGNORECASE),
+                re.compile(r".*Frame rendering aborted.*", re.IGNORECASE),
+                re.compile(r".*Rendering was internally aborted.*", re.IGNORECASE),
+                re.compile(r'.*Cannot find procedure "rsPreference".*', re.IGNORECASE),
+            ]
+            callback_list.append(RegexCallback(error_regexes, self._handle_error))
+
+            insufficient_ram_regexes = re.compile(r".*Failed to allocate mem.*", re.IGNORECASE)
             callback_list.append(
                 RegexCallback(
-                    [re.compile(_cinema4d_license_error)],
-                    self._handle_license_error,
+                    [re.compile(insufficient_ram_regexes)],
+                    self._handle_insufficient_ram,
                 )
             )
 
@@ -250,16 +326,44 @@ class Cinema4DAdaptor(Adaptor[AdaptorConfiguration]):
         """
         self._exc_info = RuntimeError(f"Cinema4D Encountered an Error: {match.group(0)}")
 
-    def _handle_license_error(self, match: re.Match) -> None:
+    def _handle_insufficient_ram(self, match: re.Match) -> None:
         """
-        Callback for stdout that indicates an license error.
+        Handle insufficient RAM errors during Redshift rendering.
+
         Args:
-            match (re.Match): The match object from the regex pattern that was matched the message
+            match (re.Match): The match object containing the failed memory allocation size
 
         Raises:
-            RuntimeError: Always raises a runtime error to halt the adaptor.
+            RuntimeError: Raised when RAM allocation fails
         """
-        self._exc_info = RuntimeError(match.group(0))
+        message = (
+            "Redshift requires more RAM to render. "
+            "Please increase the worker's RAM to at least double the worker's GPU VRAM. For more info: "
+            "https://help.maxon.net/c4d/s26/de-de/Content/_REDSHIFT_/html/Dealing+with+Out-Of-RAM+situations.html. "
+            f"Error: {match.group(0)}"
+        )
+
+        self._exc_info = RuntimeError(message)
+
+    def _add_deadline_openjd_paths(self) -> None:
+        # Add the openjd namespace directory to PYTHONPATH, so that adaptor_runtime_client
+        # will be available directly to the adaptor client.
+        import deadline.cinema4d_adaptor
+        import openjd.adaptor_runtime_client
+
+        openjd_namespace_dir = os.path.dirname(
+            os.path.dirname(openjd.adaptor_runtime_client.__file__)
+        )
+        deadline_namespace_dir = os.path.dirname(
+            os.path.dirname(deadline.cinema4d_adaptor.__file__)
+        )
+        python_path_addition = f"{openjd_namespace_dir}{os.pathsep}{deadline_namespace_dir}"
+        if "C4DPYTHONPATH311" in os.environ:
+            os.environ["C4DPYTHONPATH311"] = (
+                f"{os.environ['C4DPYTHONPATH311']}{os.pathsep}{python_path_addition}"
+            )
+        else:
+            os.environ["C4DPYTHONPATH311"] = python_path_addition
 
     def _start_cinema4d_client(self) -> None:
         """
@@ -271,7 +375,9 @@ class Cinema4DAdaptor(Adaptor[AdaptorConfiguration]):
         # XXX: on linux we need to run the c4d env setup script first, this env
         # var allows us to use a wrapper around Commandline. Ideally a conda env
         # does this for us.
-        c4d_exe_env = os.getenv("DEADLINE_CINEMA4D_EXE", "")
+        # On Linux this should be a path similar to this: /opt/maxon/cinema4dr2024.200/bin/Commandline
+        # On Windows it should be a path similar to this: "C:\Program Files\Maxon Cinema 4D R26\Commandline.exe"
+        c4d_exe_env = os.environ.get("C4D_COMMANDLINE_EXECUTABLE", "")
         if not c4d_exe_env:
             c4d_exe = "Commandline"
         else:
@@ -283,7 +389,7 @@ class Cinema4DAdaptor(Adaptor[AdaptorConfiguration]):
         if cinema4d_pathmap:
             os.environ["CINEMA4D_PATHMAP"] = cinema4d_pathmap
 
-        _logger.info("Setting CINEMA4D_PATHMAP to: {}".format(cinema4d_pathmap))
+        _logger.info(f"Setting CINEMA4D_PATHMAP to: {cinema4d_pathmap}")
 
         # set plugin path to DeadlineCloudClient
         parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -296,12 +402,87 @@ class Cinema4DAdaptor(Adaptor[AdaptorConfiguration]):
         else:
             new_module_path = plugin_dir + os.pathsep + module_path
         os.environ[module_path_key] = new_module_path
+        arguments = [c4d_exe, "-nogui", "-debug"]
+        if "linux" in platform.system().lower():
+            _logger.info("Setting Linux Cinema4D environment")
+            self._set_cinema4d_environment(c4d_exe)
+            _logger.info("Inserting Linux adaptor wrapper script")
+            arguments.insert(0, os.path.join(os.path.dirname(__file__), "adaptor.sh"))
+        # "-noopengl", "-DeadlineCloudClient"]
+        # From: https://developers.maxon.net/forum/topic/15140/running-commanline-application-with-python/6
+        if os.environ.get("g_licenseServerRLM", None):
+            # arguments.append("g_licenseModel=LICENSEMODEL::RLM")
+            arguments.append("g_licenseServerRLM={}".format(os.environ.get("g_licenseServerRLM")))
+        if os.environ.get("g_licenseServerUrl", None):
+            # arguments.append("g_licenseModel=LICENSEMODEL::LICENSESERVER")
+            arguments.append("g_licenseServerUrl={}".format(os.environ.get("g_licenseServerUrl")))
 
+        arguments = [c4d_exe, "-nogui", "-DeadlineCloudClient"]
+        # If this is a Redshift render, we would want to emit at least error logs
+        # For non-Redshift renders this does not print any extra information.
+        arguments.extend(["-redshift-log-console", "Error"])
+        if "linux" in platform.system().lower():
+            _logger.info("Inserting Linux adaptor wrapper script")
+            arguments.insert(0, os.path.join(os.path.dirname(__file__), "adaptor.sh"))
+
+        self._add_deadline_openjd_paths()
+
+        if "linux" in platform.system().lower():
+            _logger.info("Setting Linux Cinema4D environment")
+            env = self._get_cinema4d_environment(c4d_exe)
+            _logger.info("Inserting Linux adaptor wrapper script")
+            arguments.insert(0, os.path.join(os.path.dirname(__file__), "adaptor.sh"))
         self._cinema4d_client = LoggingSubprocess(
-            args=[c4d_exe, "-nogui", "-DeadlineCloudClient"],
+            args=arguments,
             stdout_handler=regexhandler,
             stderr_handler=regexhandler,
         )
+
+    @staticmethod
+    def _glob_add_path(base, pattern):
+        matches = list(glob.iglob(os.path.join(base, pattern)))
+        if matches:
+            return os.path.join(base, matches[0])
+        return base
+
+    def _get_cinema4d_environment(self, c4d_exe):
+        c4d_root_path = os.path.dirname(os.path.dirname(c4d_exe))
+        environ = dict(os.environ)
+
+        ld_paths = ["bin", "resource", "modules", "python", "libs", "*linux64*", "lib64"]
+        library_path = functools.reduce(self._glob_add_path, ld_paths, os.path.dirname(c4d_root_path))
+        embree_paths = ["bin", "resource", "modules", "embree.module", "libs", "linux64"]
+        embree_path = functools.reduce(self._glob_add_path, embree_paths, os.path.dirname(c4d_root_path))
+        ld_library_paths = [os.path.join(c4d_root_path, "lib64"), library_path, embree_path]
+        if environ.get("LD_LIBRARY_PATH", None):
+            ld_library_paths.append(environ["LD_LIBRARY_PATH"])
+
+        _logger.info("Setting LD_LIBRARY_PATH to %s" % str(ld_library_paths))
+        os.environ["LD_LIBRARY_PATH"] = os.pathsep.join(ld_library_paths)
+        environ["LD_LIBRARY_PATH"] = os.pathsep.join(ld_library_paths)
+
+        paths = [os.path.join(c4d_root_path, "bin"),]
+        if environ.get("PATH", None):
+            paths.insert(0, environ["PATH"])
+        _logger.info("Setting PATH to %s" % str(paths))
+        os.environ["PATH"] = os.pathsep.join(paths)
+        environ["PATH"] = os.pathsep.join(paths)
+
+        py_paths = ["bin", "resource", "modules", "python", "libs", "*linux64*", "lib", "python*", "lib-dynload"]
+        python_path = functools.reduce(self._glob_add_path, py_paths, os.path.dirname(c4d_root_path))
+        py_paths2 = ["bin", "resource", "modules", "python", "libs", "*linux64*", "lib64", "python*", ]
+        python_path2 = functools.reduce(self._glob_add_path, py_paths2, os.path.dirname(c4d_root_path))
+        python_paths = [python_path, python_path2]
+        if environ.get("PYTHONPATH", None):
+            python_paths.insert(0, environ["PYTHONPATH"])
+        _logger.info("Setting PYTHONPATH to %s" % str(python_paths))
+        os.environ["PYTHONPATH"] = os.pathsep.join(python_paths)
+        environ["PYTHONPATH"] = os.pathsep.join(python_paths)
+
+        _logger.info("Setting LC_NUMERIC to en_US.UTF-8")
+        os.environ["LC_NUMERIC"] = "en_US.UTF-8"
+        environ["LC_NUMERIC"] = "en_US.UTF-8"
+        return environ
 
     def _get_cinema4d_pathmap(self) -> str:
         """Builds a dict of source to destination strings from the path mapping rules
@@ -336,6 +517,7 @@ class Cinema4DAdaptor(Adaptor[AdaptorConfiguration]):
         self.validators.init_data.validate(self.init_data)
 
         self.update_status(progress=0, status_message="Initializing Cinema4D")
+        self._initialize_maxon_assets_db_connection()
         self._start_cinema4d_server_thread()
         self._populate_action_queue()
         self._start_cinema4d_client()
@@ -361,11 +543,12 @@ class Cinema4DAdaptor(Adaptor[AdaptorConfiguration]):
         performs a busy wait until the render completes.
         """
 
+        self.validators.run_data.validate(run_data)
+
         if not self._cinema4d_is_running:
             raise Cinema4DNotRunningError("Cannot render because Cinema4D is not running.")
 
         run_data["frame"] = int(run_data["frame"])
-        self.validators.run_data.validate(run_data)
         self._is_rendering = True
 
         for name in _CINEMA4D_RUN_KEYS:
@@ -391,7 +574,6 @@ class Cinema4DAdaptor(Adaptor[AdaptorConfiguration]):
     def on_stop(self) -> None:
         """ """
         self._action_queue.enqueue_action(Action("close"), front=True)
-        return
 
     def on_cleanup(self):
         """
@@ -438,4 +620,5 @@ class Cinema4DAdaptor(Adaptor[AdaptorConfiguration]):
         set to be added to the action queue.
         """
         for name in _FIRST_CINEMA4D_ACTIONS:
-            self._action_queue.enqueue_action(Action(name, {name: self.init_data[name]}))
+            if name in self.init_data:
+                self._action_queue.enqueue_action(Action(name, {name: self.init_data[name]}))

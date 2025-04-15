@@ -3,16 +3,15 @@ import os
 import sys
 import traceback
 
-import c4d
-
 print('c4d python version: %s' % sys.version)
 print('system paths:')
 for n in sys.path:
     print(n)
 
+import c4d
 # cinema4d doesn't use PYTHONPATH so explicitly load modules
 if 'openjd' not in sys.modules.keys():
-    python_path = os.getenv('DEADLINE_CLOUD_PYTHONPATH')
+    python_path = os.environ.get('DEADLINE_CLOUD_PYTHONPATH', '')
     python_paths = python_path.split(os.pathsep)
     for p in python_paths:
         if sys.platform == 'win32':
@@ -22,8 +21,12 @@ if 'openjd' not in sys.modules.keys():
                 print('add_dll_directory failed: %s' % p)
         sys.path.append(p)
 
-from deadline.cinema4d_adaptor.Cinema4DClient.cinema4d_client import main
-
+# The Cinema4D Adaptor adds the `deadline` namespace directory to PYTHONPATH,
+# so that importing just the cinema4d_adaptor should work.
+try:
+    from cinema4d_adaptor.Cinema4DClient.cinema4d_client import main # type: ignore[import]
+except (ImportError, ModuleNotFoundError):
+    from deadline.cinema4d_adaptor.Cinema4DClient.cinema4d_client import main # type: ignore[import]
 
 def parse_argv(argv):
     for arg in argv:
@@ -37,3 +40,9 @@ def PluginMessage(id, data):
     if id == c4d.C4DPL_COMMANDLINEARGS:
         return parse_argv(sys.argv)
     return False
+
+# TODO: Investigate if this file is still needed. 
+# Currently, PluginMessage function is not called when the plugin is loaded in adaptor tests.
+# To unblock for tests, we check if the environment variable is set and if so, run the main function.
+if os.environ.get("CINEMA4D_ADAPTOR_TESTING", "false").lower() == "true":
+    main()

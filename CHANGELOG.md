@@ -1,3 +1,143 @@
+## 0.7.4 (2025-04-10)
+
+
+
+### Bug Fixes
+* Add better messaging when Redshift runs out of memory. (#196) ([`9dbea22`](https://github.com/aws-deadline/deadline-cloud-for-cinema-4d/commit/9dbea2268f4d70afede758f73b1aedceb0d100dd))
+
+## 0.7.3 (2025-03-31)
+
+
+
+### Bug Fixes
+* Remove 'CRITICAL: Stop' from error regexes in adaptor (#192) ([`4a959e8`](https://github.com/aws-deadline/deadline-cloud-for-cinema-4d/commit/4a959e8f26c97fe7558ea23f59514a2694014ae0))
+
+## 0.7.2 (2025-03-27)
+
+
+### Features
+* Add configurable GUI timeouts for jobs in submitter. (#180) ([`2b79232`](https://github.com/aws-deadline/deadline-cloud-for-cinema-4d/commit/2b79232739b2561de52b5414b60225f5f7ca82ea))
+
+### Bug Fixes
+* Avoid checked take from overriding other takes in submission (#185) ([`a015719`](https://github.com/aws-deadline/deadline-cloud-for-cinema-4d/commit/a015719dc93577fc95c7a584b23cd026bbd87fb9))
+* Replace C4D tokens with values in paths. (#183) ([`d655133`](https://github.com/aws-deadline/deadline-cloud-for-cinema-4d/commit/d6551334e63241941aa2dfa14316b62b1334ba14))
+* Add timeout for Cinema 4D jobs on EnvExit. (#173) ([`ce769c0`](https://github.com/aws-deadline/deadline-cloud-for-cinema-4d/commit/ce769c0168889c81811d575cfe12b54ddc43d76e))
+
+## 0.7.1 (2025-02-05)
+
+
+
+### Bug Fixes
+* Use RDATA_FRAMESEQUENCE_CUSTOM only if it exists. (#163) ([`7b4fb97`](https://github.com/aws-deadline/deadline-cloud-for-cinema-4d/commit/7b4fb97021a990d995c42c7e77ac1361981eeab9))
+
+## 0.7.0 (2025-02-03)
+
+**This release has been pulled from PyPI. The use of this release can cause the submitter to fail on Cinema 4D 2024.5.1 version. Downgrade to 0.6.1 or upgrade to the next release if available.**
+
+### BREAKING CHANGES
+* handle custom frame ranges (#152) ([`c1b1d38`](https://github.com/aws-deadline/deadline-cloud-for-cinema-4d/commit/c1b1d38bc850c7cfdf421ae3d7b680fb2d54d9f2))
+
+The function signatures of the `Animation` and `Scene` class member functions have been updated to correctly parse frame ranges from Cinema 4D. If you have scripts that directly call the `Animation` or `Scene` class member functions, the scripts will need to be updated. 
+
+
+### Features
+* prepopulate Windows host requirement (#150) ([`6673b17`](https://github.com/aws-deadline/deadline-cloud-for-cinema-4d/commit/6673b171f781557be7c47fac9be461098122c204))
+
+### Bug Fixes
+* improve error handling for sticky settings having a long path (#148) ([`99e4d53`](https://github.com/aws-deadline/deadline-cloud-for-cinema-4d/commit/99e4d53a0ff4eb820562756201339aac59ce9b3a))
+* Use Path instead of string in output paths in adaptor template. (#147) ([`ab11bdc`](https://github.com/aws-deadline/deadline-cloud-for-cinema-4d/commit/ab11bdca216e7f1b6be47d31381a565a64a319c9))
+
+## 0.6.1 (2025-01-13)
+
+
+
+### Bug Fixes
+* initialize connection to Maxon assets DB on Windows to fix confusing error message (#144) ([`f75b68d`](https://github.com/aws-deadline/deadline-cloud-for-cinema-4d/commit/f75b68d00ea029723fe573df40b3b78b3adf92fd))
+* Add error logs for Redshift. (#143) ([`46771f3`](https://github.com/aws-deadline/deadline-cloud-for-cinema-4d/commit/46771f333f4c70acc1dfe362a5da55bc321b4e13))
+* Refactor redshift non-ascii test. (#141) ([`0691c44`](https://github.com/aws-deadline/deadline-cloud-for-cinema-4d/commit/0691c444df7576a4256c7662e6e6c8b48e1f8ea1))
+
+## 0.6.0 (2025-01-03)
+
+### BREAKING CHANGES
+* **adaptor**: Update adaptor environment variable executable to C4D_COMMANDLINE_EXE (#121) ([`206b0ad`](https://github.com/aws-deadline/deadline-cloud-for-cinema-4d/commit/206b0add6bd93ab2587508a075b350e53f1f69f1))
+
+The environment variable used to find the Cinema 4D executable in the adaptor was changed from `CINEMA4D_ADAPTOR_COMMANDLINE_EXE` to `C4D_COMMANDLINE_EXECUTABLE`. If you were setting the previous variable, you will need to update the environment set up. If you relied on the executable being on the PATH, then no change is required.
+
+### Features
+* Implement asset path mapping for Cinema 4D scene files (#126) ([`33ac2e8`](https://github.com/aws-deadline/deadline-cloud-for-cinema-4d/commit/33ac2e8c298ac7902b1bdc1c5db87397816e1228))
+
+### Bug Fixes
+* Fix adaptor packaging script to package dependencies. (#137) ([`b130ccc`](https://github.com/aws-deadline/deadline-cloud-for-cinema-4d/commit/b130cccfba780a5ac540a118feb38c316790c45b))
+* Tighten error regex pattern. (#136) ([`83f0a3c`](https://github.com/aws-deadline/deadline-cloud-for-cinema-4d/commit/83f0a3c59414fc2c7f440582fdadccb1501b2f4a))
+* Ensure stdout/err streams are unbuffered. (#134) ([`0b3c05d`](https://github.com/aws-deadline/deadline-cloud-for-cinema-4d/commit/0b3c05d5c724c63c3a735698e31834b91dbb55e8))
+* add path mapping rules to convert Windows paths to C4D's Linux path format (#127) ([`8fc40d9`](https://github.com/aws-deadline/deadline-cloud-for-cinema-4d/commit/8fc40d9cbbd87a9da593d96b11b0d2bf4b6cc406))
+
+## 0.5.4 (2024-11-26)
+
+
+
+### Bug Fixes
+* use description from GUI submitter (#115) ([`afe039b`](https://github.com/aws-deadline/deadline-cloud-for-cinema-4d/commit/afe039b52430abe9c8e2ecddc9bda97466ac8f81))
+
+## 0.5.3 (2024-11-22)
+
+
+
+### Bug Fixes
+* use user configured installdir for C4D submitter location (#113) ([`173297a`](https://github.com/aws-deadline/deadline-cloud-for-cinema-4d/commit/173297a4918c87386cf7e16b6fa1aa7817239294))
+
+## 0.5.2 (2024-11-21)
+
+
+
+### Bug Fixes
+* install C4D plugin into user directory to avoid needing elevated permissions (#110) ([`572696c`](https://github.com/aws-deadline/deadline-cloud-for-cinema-4d/commit/572696cfec82ffcf9acf2e2e80c29c8a2915fc69))
+
+## 0.5.1 (2024-11-20)
+
+
+
+### Bug Fixes
+* correct OS conditional for Windows paths (#104) ([`748e1f7`](https://github.com/aws-deadline/deadline-cloud-for-cinema-4d/commit/748e1f7e24669112f3d9902508aebb12872e036a))
+
+## 0.5.0 (2024-11-20)
+
+### BREAKING CHANGES
+* This release contains two breaking changes
+
+### Features
+* install Conda packages by default (#96) ([`8ad8986`](https://github.com/aws-deadline/deadline-cloud-for-cinema-4d/commit/8ad8986c6bb073cb572b176b87e85cecd6b091b4))
+
+### Bug Fixes
+* use only Windows workers by default (#100) ([`88bd6a5`](https://github.com/aws-deadline/deadline-cloud-for-cinema-4d/commit/88bd6a5c14aa0996ed04cfff452b925d44d17f1c))
+
+## 0.4.1 (2024-11-13)
+
+
+
+### Bug Fixes
+* install pip if required before installing GUI dependencies (#91) ([`4b5b75a`](https://github.com/aws-deadline/deadline-cloud-for-cinema-4d/commit/4b5b75af991c94f033bae84ceb061d4d0f1a278a))
+
+## 0.4.0 (2024-11-13)
+
+### BREAKING CHANGES
+* renamed env variable for loading adaptor executable, added support for running the adaptor on Linux, and added support for earlier versions of 2024 (#59) ([`be33b63`](https://github.com/aws-deadline/deadline-cloud-for-cinema-4d/commit/be33b63860a2d078f2802766d6eb5ce567c05aba))
+* add adaptor output path mapping and overrides (#55) (#73) ([`6dcaf4a`](https://github.com/aws-deadline/deadline-cloud-for-cinema-4d/commit/6dcaf4a35dfb6704bdb4c04b78e76e2e36a43349))
+
+### Features
+* Add InstallBuilder submitter installer XML. (#85) ([`73dbb75`](https://github.com/aws-deadline/deadline-cloud-for-cinema-4d/commit/73dbb7518c04b8d443849f57e9461b4cf14c4d2e))
+* Only import openjd and deadline modules. (#88) ([`71911ae`](https://github.com/aws-deadline/deadline-cloud-for-cinema-4d/commit/71911ae1394203fea36875b1350e4cb4a67470d1))
+* prompt save before submit (#53) (#69) ([`c1d463c`](https://github.com/aws-deadline/deadline-cloud-for-cinema-4d/commit/c1d463c6c57fdd95c2a3d4e58d024ba3ad58a693))
+* Add DeadlineCloudSubmitter plugin ID to submitter plugin. ([`9242593`](https://github.com/aws-deadline/deadline-cloud-for-cinema-4d/commit/9242593455c70ce06cacec94d84839bf957a47cc))
+
+### Bug Fixes
+* Resolve typos in bundling scripts. (#82) ([`caf33e3`](https://github.com/aws-deadline/deadline-cloud-for-cinema-4d/commit/caf33e3ac3136c311c18069c2fa78628fcddbcfc))
+* Ensure only Critical stops fail the job and not others. (#80) ([`80af90f`](https://github.com/aws-deadline/deadline-cloud-for-cinema-4d/commit/80af90fbf2fe75c4866b26abc8cea5ba66f974ef))
+* Fix python-semantic-release issues with 9.12 (#78) ([`8cc9728`](https://github.com/aws-deadline/deadline-cloud-for-cinema-4d/commit/8cc9728c52e2e6ea83b2871887299f01124889ff))
+* handle CRITICAL error in adaptor regex callbacks (#51) (#72) ([`817eb68`](https://github.com/aws-deadline/deadline-cloud-for-cinema-4d/commit/817eb68346f165de974dca55033837a07548884b))
+* adaptor handle render result failure results (#66) (#76) ([`8e0e127`](https://github.com/aws-deadline/deadline-cloud-for-cinema-4d/commit/8e0e1277dd15faa0a8784c95b0fcb43b0505236d))
+* Add path mapping to outputs (#57) ([`056f5ea`](https://github.com/aws-deadline/deadline-cloud-for-cinema-4d/commit/056f5ea931b78eea0e21024e192179c7f5d871d8))
+
 ## 0.3.4 (2024-06-27)
 
 

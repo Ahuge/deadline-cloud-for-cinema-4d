@@ -1,83 +1,272 @@
-# AWS Deadline Cloud for Cinema4D Development
+# Development documentation
 
-This package has two active branches:
+This documentation provides guidance on developer workflows for working with the code in this repository.
 
-- `mainline` -- For active development. This branch is not intended to be consumed by other packages. Any commit to this branch may break APIs, dependencies, and so on, and thus break any consumer without notice.
-- `release` -- The official release of the package intended for consumers. Any breaking releases will be accompanied with an increase to this package's interface version.
-## Build / Test / Release
+Table of Contents:
 
-### Build the package
+* [Development Environment Setup](#development-environment-setup)
+* [Software Architecture](#software-architecture)
+* [The Development Loop](#the-development-loop)
+   * [Submitter Development Workflow](#submitter-development-workflow)
+      * [Pre-requisites](#running-the-plug-in)
+      * [Making Code Changes](#making-submitter-code-changes)
+      * [Running Tests](#running-submitter-tests)
+   * [Adaptor Development Workflow](#adaptor-development-workflow)
+      * [Running the Adaptor Locally](#running-the-adaptor-locally)
+      * [Running the Adaptor on a Farm](#running-the-adaptor-on-a-farm)
+      * [Testing the Adaptor](#testing-the-adaptor)
+   * [Running the integration tests](#integration-tests-currently-wip)
 
-```bash
-hatch build
-```
+## Development Environment Setup
 
-### Run tests
+To develop the Python code in this repository you will need:
+
+1. Python 3.9 or higher. We recommend [mise](https://github.com/jdx/mise) if you would like to run more than one version
+   of Python on the same system. When running unit tests against all supported Python versions, for instance.
+2. The [hatch](https://github.com/pypa/hatch) package installed (`pip install --upgrade hatch`) into your Python environment.
+3. An install of a supported version of Cinema 4D.
+4. A valid AWS Account.
+5. An AWS Deadline Cloud Farm to run jobs on. We recommend following the quickstart in the Deadline Cloud console to create a
+   Queue with the default Queue Environment, and a Service Managed Fleet.
+
+You can develop on any Windows workstation.
+
+## Software Architecture
+
+If you are not already familiar with the architecture of the Cinema 4D submitter extension and adaptor application in this repository
+then we suggest going over the [software architecture](docs/software_arch.md) for an overview of the components and how they function.
+
+## The Development Loop
+
+We have configured [hatch](https://github.com/pypa/hatch) commands to support a standard development loop. You can run the following
+from any directory of this repository:
+
+* `hatch build` - To build the installable Python wheel and sdist packages into the `dist/` directory.
+* `hatch run test` - To run the PyTest unit tests found in the `test/unit` directory. See [Testing](#testing).
+* `hatch run all:test` - To run the PyTest unit tests against all available supported versions of Python.
+* `hatch run integ:test` - To run all the integration tests against your current build.
+* `hatch run lint` - To check that the package's formatting adheres to our standards.
+* `hatch run fmt` - To automatically reformat all code to adhere to our formatting standards.
+* `hatch shell` - Enter a shell environment that will have Python set up to import your development version of this package.
+* `hatch env prune` - Delete all of your isolated workspace [environments](https://hatch.pypa.io/1.12/environment/)
+   for this package.
+* `hatch run installer:build-installer --local-dev --platform <PLATFORM> [--install-builder-path <LOCATION> --output-dir <DIR>]` - To build a local submitter installer.
+* `hatch run test-installer` - To run tests against your locally built installer.
+
+Note: Hatch uses [environments](https://hatch.pypa.io/1.12/environment/) to isolate the Python development workspace
+for this package from your system or virtual environment Python. If your build/test run is not making sense, then
+sometimes pruning (`hatch env prune`) all of these environments for the package can fix the issue.
+
+### Submitter Development Workflow
+
+The submitter plug-in extension generates job bundles to submit to AWS Deadline Cloud. Developing a change
+to the submitter involves iteratively changing the plug-in extension code, then running the plug-in within Cinema 4D to generate or submit a job bundle, inspecting the generated job bundle to ensure that it is as you expect,
+and ultimately running that job to ensure that it works as desired.
+
+#### Pre-requisites
+
+Before making changes to the existing Cinema 4D extension, verify your current setup is correct. Follow the [instructions here](https://github.com/aws-deadline/deadline-cloud-for-cinema-4d?tab=readme-ov-file#submitter) to set up properly.
+
+#### Making Submitter Code Changes
+
+Whenever you modify code for the plug-in extension or its supporting Python libraries, you will need to make similar changes to your Cinema 4D workstation and restart Cinema 4D for changes to take effect.
+
+#### Running Submitter Tests
+
+The tests for the plug-in have two forms:
+
+1. Unit tests - Small tests that are narrowly focused on ensuring that function-level behavior of the
+   implementation behaves as it is expected to. These can always be run locally on your workstation without
+   requiring an AWS account.
+2. Integration tests - In-application tests that verify that job submissions generate expected job bundles.
+
+##### Unit Tests
+
+Unit tests are all located under the `test/deadline_submitter_for_cinema4d/unit` directory of this repository. If you are adding
+or modifying functionality, then you will almost always want to be writing one or more unit tests to demonstrate that your
+logic behaves as expected and that future changes do not accidentally break your change.
+
+To run the unit tests, simply use hatch:
 
 ```bash
 hatch run test
 ```
 
-### Run linting
+### Adaptor Development Workflow
+
+The Cinema 4D adaptor is a command-line application (named `cinema4d-openjd`) that interfaces with the Cinema 4D application.
+
+When developing a change to the Cinema 4D adaptor we recommend primarily running the adaptor locally on your workstation,
+and running and adding to the unit tests until you are comfortable that your change looks like it is working as you expect.
+Testing locally like this will allow you to iterate faster on your change than the alternative of testing by
+submitting jobs to Deadline Cloud to run using your modified adaptor. Then, test it out on a real render farm only once
+you think that your change is functioning as you'd like.
+
+#### Running the Adaptor Locally
+
+To run the adaptor you will first need to create two files:
+
+1. An `init-data.yaml` (or `init-data.json`) file that contains the information passed to the adaptor
+   during its initialization phase. The schema for this file can be found at
+   `src/deadline/cinema4d_adaptor/Cinema4DAdaptor/schemas/init_data.schema.json`.
+2. A `run-data.yaml` (or `run-data.json`) file that contains the information passed to the adaptor
+   to do a single Task run. The schema for this file can be found at
+   `src/deadline/cinema4d_adaptor/Cinema4DAdaptor/schemas/run_data.schema.json`.
+
+To run the adaptor once you have created an `init-data.yaml` and `run-data.yaml` file to test with:
+
+1. Ensure that Cinema 4D commandline executable can be run directly in your terminal by putting its location in your PATH environment variable.
+3. Run the `cinema4d-openjd` commmand-line with arguments that exercise your code change.
+
+The adaptor has two modes of operation:
+
+1. Running directly via the `cinema4d-openjd run` subcommand; or
+2. Running as a background daemon via subcommands of the `cinema4d-openjd daemon` subcommand.
+
+We recommend primarily developing using the `cinema4d-openjd run` subcommand as it is simpler to operate
+for rapid development iterations, but that you should also ensure that your change works with the background
+daemon mode with multiple `run` commands before calling your change complete.
+
+The basic command to run the `cinema4d-openjd` run command will look like:
 
 ```bash
-hatch run lint
+cinema4d-openjd run \
+  --init-data file://<absolute-path-to-init-data.yaml> \
+  --run-data file://<absolute-path-to-run-data.yaml>
 ```
 
-### Run formatting
+The equivalent run with the `cinema4d-openjd daemon` subcommand looks like:
 
 ```bash
-hatch run fmt
+# The daemon start command requires that the connection-info file not already exist.
+test -f connection-info.json || rm connection-info.json
+
+# This starts up a background process running the adaptor, and runs the `on_init` and `on_start`
+# methods of the adaptor.
+cinema4d-openjd daemon start \
+  --init-data file://<absolute-path-to-init-data.yaml> \
+  --connection-file file://connection-info.json
+
+# This connects to the already running adaptor, via the information in the connection-info.json file,
+# and runs the adaptor's `on_run` method.
+# When testing, we suggest doing multiple "daemon run" commands with different inputs before
+# running "daemon stop". This will help identify problems caused by data carrying over from a previous
+# run.
+cinema4d-openjd daemon run \
+  --run-data file://<absolute-path-to-run-data.yaml> \
+  --connection-file file://connection-info.json
+
+# This connects to the already running adaptor to instruct it to shutdown the Cinema 4D application
+# and then exit.
+cinema4d-openjd daemon stop \
+  --connection-file file://connection-info.json
 ```
 
-## Run tests for all supported Python versions
+#### Running the Adaptor on a Farm
+
+If you have made modifications to the adaptor and wish to test your modifications on a live Deadline Cloud Farm
+with real jobs, then we recommend using a [Service Managed Fleet](https://docs.aws.amazon.com/deadline-cloud/latest/userguide/smf-manage.html)
+for your testing. We recommend performing this style of test if you have made any modifications that might interact with Deadline Cloud's
+job attachments feature, or that could interact with path mapping in any way.
+
+You'll need to perform the following steps to substitute your build of the adaptor for the one in the service.
+
+1. Follow the [instructions](https://github.com/aws-deadline/deadline-cloud-samples/tree/mainline/conda_recipes#create-a-patch-for-a-recipe) to make a patch for your "cinema4d-openjd" recipe.
+2. Build a new "cinema4d-openjd" conda package using this patch. For instructions on building conda recipes on Deadline Cloud, follow this [article](https://aws.amazon.com/blogs/media/create-a-conda-package-and-channel-for-aws-deadline-cloud/).
+This should have automatically added the latest patch onto the S3 bucket for the SMF workers to pull from.
+3. Submit jobs and check if the renders work as expected.
+
+##### Unit tests
+
+Unit tests are all located under the `test/deadline_adaptor_for_cinema4d/unit` directory of this repository. If you are adding
+or modifying functionality, then you will almost always want to be writing one or more unit tests to demonstrate that your
+logic behaves as expected and that future changes do not accidentally break your change.
+
+To run the unit tests, simply use hatch:
 
 ```bash
-hatch run all:test
+hatch run test
 ```
 
-## Submitter environment
 
-Cinema4D does not support PYTHONPATH. We set DEADLINE_CLOUD_PYTHONPATH which the
-submitter and adaptor uses to set sys.path explictly and load deadline modules.
+### Integration Tests
 
-- install deadline-cloud with pyside
-- set env below
-
+We run integration tests by running it in Cinema 4D's python i.e. c4dpy for submitter and using Commandline.exe for adaptor tests.
 ```
 # deadline-cloud lib with pyside
-export DEADLINE_CLOUD_PYTHONPATH="/path/to/deadline-cloud/site-packages"
+export CINEMA4D_DEADLINE_CLOUD_PYTHONPATH="/path/to/deadline-cloud/site-packages"
 # configure cinema4d to find extension entry point
 export g_additionalModulePath="/path/to/deadline-cloud-for-cinema4d/deadline_cloud_extension"
 ```
 
-- run cinema4d
-- Extensions > Deadline Cloud Submitter
+#### Test Flow
+1. Scene Generation:
+   - Each test case uses scene generation scripts to create test scenes (and assets if necessary)
+   - Scenes are created with specific configurations for testing different scenarios
 
-## Worker adaptor environment
+2. Job Bundle generation:
+   - Generated scenes are processed through the submitter code
+   - Job bundles are exported to a temporary location within the /integ folder.
 
-Cinema4D does not support PYTHONPATH. We set DEADLINE_CLOUD_PYTHONPATH which the
+<<<<<<< HEAD
+3. Validation of job bundle:
+   - Exported bundles are compared against expected bundles
+   - Tests verify structure and content of the exports.
+=======
+Cinema4D does not support PYTHONPATH. We set CINEMA4D_DEADLINE_CLOUD_PYTHONPATH which the
 adaptor uses to set sys.path explictly and load deadline modules.
+>>>>>>> a66e7b0... Change ambiguous DEADLINE_CLOUD_PYTHONPATH env var
 
-### Linux
+4. Scene rendering:
+   - The job bundles are run using OpenJD `run` command with Cinema 4D Commandline.
 
-Linux also requires the setup_c4d_env sourced first, we can override the exe
-path with a c4d wrapper script that sources it then call the Commandline
-client.
+5. Validation of output files:
+   - The generated output files are compared with expected scene files.
 
-Example linux env below:
+#### Test Structure
 
+<pre>
+   /test
+      /integ
+         /test_scenes/
+            /scene_1
+               /expected_job_bundle/      # Reference job bundle for validation
+                  asset_references.yaml
+                  parameter_values.yaml
+                  template.yaml
+               /expected_job_output/
+                  renders/
+                     output files
+               /scene
+                  scene.py      # Contains test scene generation scripts
+         conftest.py            # Test configuration and fixtures
+         test_cinema4d.py       # Runs all the tests scenes in a parametrized fashion.
+</pre>
 ```
 export DEADLINE_CLOUD_PYTHONPATH="/tmp/lib/python3.11/site-packages"
-export DEADLINE_CINEMA4D_EXE="/opt/maxon/cinema4dr2024.200/bin/c4d"
+export COMMANDLINE_EXECUTABLE="/opt/maxon/cinema4dr2024.200/bin/Commandline"
 ```
 
+<<<<<<< HEAD
+You would have to setup Cinema 4D and Redshift licensing before you run the tests.
+For Cinema 4D licensing, set environment variable by using `$env:g_licenseServerURL = <your-license-server-host>:<port>` on Windows Powershell.
+For redshift licensing, set the environment variable by using `$env:redshift_LICENSE = <port>@<your-license-server-host>` on Windows Powershell.
+
+1. Set the environment variable `C4D_PYTHON` to the installation folder of Cinema 4D.
+   1. `set C4D_PYTHON=<Cinema 4D location>` on Windows Command or `$env:C4D_PYTHON = <Cinema 4D location>` on Windows Powershell.
+      1. The default location for `Cinema 4D` on Windows is `C:\Program Files\Maxon Cinema 4D 2025\`. This location would be automatically used if the directory exists.
+2. For running the adaptor tests, we would need to install `pywin32` to the installation paths as its an adaptor dependency.
+   2.1 Run `pip install pywin32==308 -t <your Python site-packages location>`.
+   During my testing, pywin32's version 308 was required because of other dependencies requiring this version.
+3. Run `hatch run integ:test`
+=======
 ### Windows
 
 To run the adaptor on Windows, you'll have to configure the environment variable `DEADLINE_CLOUD_PYTHONPATH` (like the submitter above) and install pywin32 into Cinema4D's python. Example:
 
 ```
 set DEADLINE_CLOUD_PYTHONPATH="C:\path\to\deadline-cloud\site-packages"
-"C:\Program Files\Maxon Cinema 4D 2024\resource\modules\python\libs\win64\python.exe" -m ensurepip   
-"C:\Program Files\Maxon Cinema 4D 2024\resource\modules\python\libs\win64\python.exe" -m pip install pywin32  
+"C:\Program Files\Maxon Cinema 4D 2024\resource\modules\python\libs\win64\python.exe" -m ensurepip
+"C:\Program Files\Maxon Cinema 4D 2024\resource\modules\python\libs\win64\python.exe" -m pip install pywin32
 ```
+>>>>>>> a66e7b0... Change ambiguous DEADLINE_CLOUD_PYTHONPATH env var

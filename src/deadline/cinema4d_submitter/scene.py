@@ -4,7 +4,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from enum import IntEnum
-from typing import Iterator, Optional
+from typing import Optional, Tuple
 
 import c4d
 
@@ -41,60 +41,67 @@ class Animation:
     """
 
     @staticmethod
-    def current_frame() -> int:
+    def current_frame(data) -> int:
         """
         Returns the current frame number from Cinema 4D.
         """
         doc = c4d.documents.GetActiveDocument()
-        data = doc.GetActiveRenderData()
         return int(data[c4d.RDATA_FRAMEFROM].GetFrame(doc.GetFps()))
 
     @staticmethod
-    def start_frame() -> int:
+    def start_frame(data) -> int:
         """
         Returns the start frame for the scenes render
         """
         doc = c4d.documents.GetActiveDocument()
-        data = doc.GetActiveRenderData()
         return int(data[c4d.RDATA_FRAMEFROM].GetFrame(doc.GetFps()))
 
     @staticmethod
-    def end_frame() -> int:
+    def end_frame(data) -> int:
         """
         Returns the End frame for the scenes Render
         """
         doc = c4d.documents.GetActiveDocument()
-        data = doc.GetActiveRenderData()
         return int(data[c4d.RDATA_FRAMETO].GetFrame(doc.GetFps()))
 
     @staticmethod
-    def frame_step() -> int:
+    def frame_step(data) -> int:
         """
         Returns the frame step of the current render.
         """
-        doc = c4d.documents.GetActiveDocument()
-        data = doc.GetActiveRenderData()
         return int(data[c4d.RDATA_FRAMESTEP])
 
     @staticmethod
-    def extension_padding() -> int:
+    def custom_frames(data) -> str:
         """
-        Returns the amount that frames are padded by in the output file name.
+        Returns the custom frames specification of the current render.
+        Note that this field may be filled even if custom frames are not being used.
+        To check if custom frames are being used, check whether
+        doc.GetActiveRenderData()[c4d.RDATA_FRAMESEQUENCE] == c4d.RDATA_FRAMESEQUENCE_CUSTOM
         """
-        return 4
+        return data[c4d.RDATA_FRAME_RANGE_STRING]
 
     @classmethod
-    def frame_list(cls, data=None) -> "FrameRange":
+    def frame_list(cls, data=None) -> str:
         """
-        Retursn a FrameRange object representing the full framelist.
+        Returns a string representing the full framelist.
         """
         if data is None:
             doc = c4d.documents.GetActiveDocument()
             data = doc.GetActiveRenderData()
-        if data[c4d.RDATA_FRAMESEQUENCE] != c4d.RDATA_FRAMESEQUENCE_CURRENTFRAME:
-            return FrameRange(start=cls.start_frame(), stop=cls.end_frame(), step=cls.frame_step())
-        else:
-            return FrameRange(start=cls.current_frame())
+        frame_spec_type = data[c4d.RDATA_FRAMESEQUENCE]
+        if frame_spec_type == c4d.RDATA_FRAMESEQUENCE_CURRENTFRAME:
+            return str(FrameRange(start=cls.current_frame(data)))
+        if (
+            hasattr(c4d, "RDATA_FRAMESEQUENCE_CUSTOM")
+            and frame_spec_type == c4d.RDATA_FRAMESEQUENCE_CUSTOM
+        ):
+            return cls.custom_frames(data)
+        return str(
+            FrameRange(
+                start=cls.start_frame(data), stop=cls.end_frame(data), step=cls.frame_step(data)
+            )
+        )
 
 
 class Scene:
@@ -132,28 +139,28 @@ class Scene:
             take_data = doc.GetTakeData()
             take = take_data.GetCurrentTake()
         render_data = Scene.get_render_data(doc=doc, take=take)
-        rbc = render_data.GetDataInstance()
-        rpd = {
-            "_doc": doc,
-            "_rData": render_data,
-            "_rBc": rbc,
-            "_frame": doc.GetTime().GetFrame(doc.GetFps()),
-        }
-        if take:
-            rpd["take"] = take
+
         image_paths = set()
         if render_data[c4d.RDATA_SAVEIMAGE]:
             path = render_data[c4d.RDATA_PATH]
-            xpath = c4d.modules.tokensystem.FilenameConvertTokens(path, rpd)
+            xpath = Scene.replace_render_path_tokens(
+                path, doc=doc, take=take, render_data=render_data
+            )
             if not os.path.isabs(xpath):
+                if xpath.startswith("./"):
+                    xpath = xpath[2:]
                 xpath = os.path.join(doc_path, xpath)
-            image_paths.add(os.path.dirname(xpath))
+            image_paths.add(os.path.dirname(os.path.normpath(xpath)))
         if render_data[c4d.RDATA_MULTIPASS_SAVEIMAGE]:
             path = render_data[c4d.RDATA_MULTIPASS_FILENAME]
-            xpath = c4d.modules.tokensystem.FilenameConvertTokens(path, rpd)
+            xpath = Scene.replace_render_path_tokens(
+                path, doc=doc, take=take, render_data=render_data
+            )
             if not os.path.isabs(xpath):
+                if xpath.startswith("./"):
+                    xpath = xpath[2:]
                 xpath = os.path.join(doc_path, xpath)
-            image_paths.add(os.path.dirname(xpath))
+            image_paths.add(os.path.dirname(os.path.normpath(xpath)))
         return image_paths
 
     @staticmethod
@@ -171,12 +178,59 @@ class Scene:
         return render_data
 
     @staticmethod
-    def output_path() -> str:
+    def replace_render_path_tokens(path, doc=None, take=None, render_data=None):
         """
-        Returns the path to the default output directory.
+        Replaces tokens in a path with actual values from scene and render data
+        """
+        if doc is None:
+            doc = c4d.documents.GetActiveDocument()
+
+        if render_data is None:
+            render_data = Scene.get_render_data(doc=doc, take=take)
+
+        render_path_data = {
+            "_doc": doc,
+            "_rData": render_data,
+            "_rBc": render_data.GetDataInstance(),
+            "_frame": doc.GetTime().GetFrame(doc.GetFps()),
+        }
+        if take:
+            render_path_data["_take"] = take
+
+        return c4d.modules.tokensystem.FilenameConvertTokens(path, render_path_data)
+
+    @staticmethod
+    def get_output_paths(take=None) -> Tuple[str, str]:
+        """
+        Returns the default and multi-pass output paths.
         """
         doc = c4d.documents.GetActiveDocument()
-        return doc.GetDocumentPath()
+        doc_path = doc.GetDocumentPath()
+        render_data = Scene.get_render_data(doc=doc, take=take)
+
+        default_out = ""
+        multi_out = ""
+        if render_data[c4d.RDATA_SAVEIMAGE]:
+            path = render_data[c4d.RDATA_PATH]
+            xpath = Scene.replace_render_path_tokens(
+                path, doc=doc, take=take, render_data=render_data
+            )
+            if not os.path.isabs(xpath):
+                if xpath.startswith("./"):
+                    xpath = xpath[2:]
+                xpath = os.path.join(doc_path, xpath)
+            default_out = os.path.normpath(xpath)
+        if render_data[c4d.RDATA_MULTIPASS_SAVEIMAGE]:
+            path = render_data[c4d.RDATA_MULTIPASS_FILENAME]
+            xpath = Scene.replace_render_path_tokens(
+                path, doc=doc, take=take, render_data=render_data
+            )
+            if not os.path.isabs(xpath):
+                if xpath.startswith("./"):
+                    xpath = xpath[2:]
+                xpath = os.path.join(doc_path, xpath)
+            multi_out = os.path.normpath(xpath)
+        return default_out, multi_out
 
 
 @dataclass
@@ -197,9 +251,3 @@ class FrameRange:
             return f"{self.start}-{self.stop}"
 
         return f"{self.start}-{self.stop}:{self.step}"
-
-    def __iter__(self) -> Iterator[int]:
-        stop: int = self.stop if self.stop is not None else self.start
-        step: int = self.step if self.step is not None else 1
-
-        return iter(range(self.start, stop + step, step))

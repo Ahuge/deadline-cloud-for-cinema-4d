@@ -17,6 +17,7 @@ from qtpy.QtWidgets import (  # type: ignore
 )
 
 from ...takes import TakeSelection
+from deadline.client.ui.widgets.job_timeouts_widget import TimeoutTableWidget
 
 """
 UI widgets for the Scene Settings tab.
@@ -41,6 +42,7 @@ class FileSearchLineEdit(QWidget):
         lyt.setContentsMargins(0, 0, 0, 0)
 
         self.edit = QLineEdit(self)
+        self.edit.setMaxLength(32767)
         self.btn = QPushButton("...", parent=self)
         self.btn.setMaximumSize(QSize(100, 40))
         self.btn.clicked.connect(self.get_file)
@@ -95,9 +97,18 @@ class SceneSettingsWidget(QWidget):
 
     def _build_ui(self, settings):
         lyt = QGridLayout(self)
+        self.op_path_chck = QCheckBox("Override Output Path", self)
         self.op_path_txt = FileSearchLineEdit(directory_only=True)
-        lyt.addWidget(QLabel("Output Path"), 1, 0)
+        lyt.addWidget(self.op_path_chck, 1, 0)
         lyt.addWidget(self.op_path_txt, 1, 1)
+        self.op_path_chck.stateChanged.connect(self.activate_path_changed)
+
+        self.op_multi_path_chck = QCheckBox("Override Multi-Pass Path", self)
+        self.op_multi_path_txt = FileSearchLineEdit(directory_only=True)
+        lyt.addWidget(self.op_multi_path_chck, 2, 0)
+        lyt.addWidget(self.op_multi_path_txt, 2, 1)
+        self.op_multi_path_chck.stateChanged.connect(self.activate_multi_path_changed)
+
         self.layers_box = QComboBox(self)
         layer_items = [
             (TakeSelection.MAIN, "Main Take"),
@@ -107,25 +118,34 @@ class SceneSettingsWidget(QWidget):
         ]
         for layer_value, text in layer_items:
             self.layers_box.addItem(text, layer_value)
-        lyt.addWidget(QLabel("Takes"), 2, 0)
-        lyt.addWidget(self.layers_box, 2, 1)
+        lyt.addWidget(QLabel("Takes"), 3, 0)
+        lyt.addWidget(self.layers_box, 3, 1)
 
         self.frame_override_chck = QCheckBox("Override Frame Range", self)
         self.frame_override_txt = QLineEdit(self)
+        self.frame_override_txt.setMaxLength(32767)
         lyt.addWidget(self.frame_override_chck, 4, 0)
         lyt.addWidget(self.frame_override_txt, 4, 1)
         self.frame_override_chck.stateChanged.connect(self.activate_frame_override_changed)
+
+        self.timeout_settings_box = TimeoutTableWidget(timeouts=settings.timeouts, parent=self)
+        lyt.addWidget(self.timeout_settings_box, 5, 0, 1, 2)
 
         if self.developer_options:
             self.include_adaptor_wheels = QCheckBox(
                 "Developer Option: Include Adaptor Wheels", self
             )
-            lyt.addWidget(self.include_adaptor_wheels, 5, 0)
+            lyt.addWidget(self.include_adaptor_wheels, 6, 0)
 
         lyt.addItem(QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Expanding), 10, 0)
 
     def _configure_settings(self, settings):
+        self.op_path_chck.setChecked(False)
+        self.op_path_txt.setEnabled(False)
+        self.op_multi_path_chck.setChecked(False)
+        self.op_multi_path_txt.setEnabled(False)
         self.op_path_txt.setText(settings.output_path)
+        self.op_multi_path_txt.setText(settings.multi_pass_path)
         self.frame_override_chck.setChecked(settings.override_frame_range)
         self.frame_override_txt.setEnabled(settings.override_frame_range)
         self.frame_override_txt.setText(settings.frame_list)
@@ -142,11 +162,14 @@ class SceneSettingsWidget(QWidget):
         Update a scene settings object with the latest values.
         """
         settings.output_path = self.op_path_txt.text()
+        settings.multi_pass_path = self.op_multi_path_txt.text()
 
         settings.override_frame_range = self.frame_override_chck.isChecked()
         settings.frame_list = self.frame_override_txt.text()
 
         settings.take_selection = self.layers_box.currentData()
+
+        self.timeout_settings_box.update_settings(settings.timeouts)
 
         if self.developer_options:
             settings.include_adaptor_wheels = self.include_adaptor_wheels.isChecked()
@@ -158,3 +181,9 @@ class SceneSettingsWidget(QWidget):
         Set the activated/deactivated status of the Frame override text box
         """
         self.frame_override_txt.setEnabled(Qt.CheckState(state) == Qt.Checked)
+
+    def activate_path_changed(self, state):
+        self.op_path_txt.setEnabled(Qt.CheckState(state) == Qt.Checked)
+
+    def activate_multi_path_changed(self, state):
+        self.op_multi_path_txt.setEnabled(Qt.CheckState(state) == Qt.Checked)
